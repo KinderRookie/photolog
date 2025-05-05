@@ -1,0 +1,9 @@
+{
+    "name": "basic-two-row",
+    "row": 2,
+    "column": 1,
+    "coordinates": [
+    {"x": 380, "y":74, "width":1590, "height": 2458},
+    {"x": 380, "y": 2586, "width": 1590, "height": 2458}
+    ]
+}
