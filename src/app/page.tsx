@@ -1,7 +1,14 @@
 'use client';
+type DirectoryProps = {
+  webkitdirectory?: boolean;
+  directory?: boolean;
+};
+const directoryProps: DirectoryProps = {
+  webkitdirectory: true,
+  directory: true,
+};
 import Image from "next/image";
 import React, { useState, useRef, useEffect } from 'react';
-import html2canvas from 'html2canvas';
 import frameImg from '../assets/frame.jpg';
 import frameInfo from '../assets/info.json';
 
@@ -12,7 +19,7 @@ function PhotoFrameEditor({ frameUrl }: { frameUrl: string }) {
   // 1) 전체 이미지 목록
   const [images, setImages] = useState<{ file: File; url: string }[]>([]);
   // 2) 사용자가 입력한 좌표
-  const [coords, setCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [coords, _] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   // 3) 배치된 아이템들: {url, xPct, yPct, wPct, hPct} 리스트
   const [placedItems, setPlacedItems] = useState<
     Array<{ url: string; xPct: number; yPct: number; wPct: number; hPct: number }>
@@ -22,7 +29,11 @@ function PhotoFrameEditor({ frameUrl }: { frameUrl: string }) {
 
   // responsive split pane state
   const minRightWidth = 300; // 최소 우측 영역 너비(px)
-  const [leftWidth, setLeftWidth] = useState(window.innerWidth * 0.6);
+  // const [leftWidth, setLeftWidth] = useState(window.innerWidth * 0.6);
+  const [leftWidth, setLeftWidth] = useState(0);
+  useEffect(() => {
+  setLeftWidth(window.innerWidth * 0.6);
+  }, []);
   const draggingRef = useRef(false);
 
   const onMouseDownDivider = () => { draggingRef.current = true; };
@@ -154,7 +165,7 @@ const handleSave = async () => {
           style={{ display: 'none' }}
           multiple
           onChange={handleFolderSelect}
-          {...({ webkitdirectory: true, directory: true } as any)}
+          {...directoryProps}
         />
         <div
           style={{
