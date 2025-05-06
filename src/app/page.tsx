@@ -9,13 +9,33 @@ const directoryProps: DirectoryProps = {
 };
 import Image from "next/image";
 import React, { useState, useRef, useEffect } from 'react';
-import frameImg from '../assets/frame.jpg';
-import frameInfo from '../assets/info.json';
 
-function PhotoFrameEditor({ frameUrl }: { frameUrl: string }) {
+import frame1Img from '../assets/frame1/frame.jpg';
+import frame1Info from '../assets/frame1/info.json';
+import frame2Img from '../assets/frame2/frame.jpg';
+import frame2Info from '../assets/frame2/info.json';
+import frame3Img from '../assets/frame3/frame.jpg';
+import frame3Info from '../assets/frame3/info.json';
+import frame4Img from '../assets/frame4/frame.jpg';
+import frame4Info from '../assets/frame4/info.json';
+
+const frames = [
+  { frame: frame1Img, info: frame1Info },
+  { frame: frame2Img, info: frame2Info },
+  { frame: frame3Img, info: frame3Info },
+  { frame: frame4Img, info: frame4Info },
+] as const;
+
+function PhotoFrameEditor({
+  frame,
+  frameInfo,
+}: {
+  frame: typeof frame1Img;
+  frameInfo: typeof frame1Info;
+}) {
   // original frame dimensions from imported asset
-  const originalWidth = frameImg.width;
-  const originalHeight = frameImg.height;
+  const originalWidth = frame.width;
+  const originalHeight = frame.height;
   // 1) 전체 이미지 목록
   const [images, setImages] = useState<{ file: File; url: string }[]>([]);
   // 2) 사용자가 입력한 좌표
@@ -97,55 +117,54 @@ function PhotoFrameEditor({ frameUrl }: { frameUrl: string }) {
   };
 
   // 미리보기 캡처 & 저장
-  // page.tsx 중 handleSave 부분을 통째로 바꿔주세요
-const handleSave = async () => {
-  // 1) 선택 해제
-  setSelectedRegion(null);
+  const handleSave = async () => {
+    // 1) 선택 해제
+    setSelectedRegion(null);
 
-  // 2) Off‐screen 캔버스 생성
-  const canvas = document.createElement('canvas');
-  canvas.width = originalWidth;
-  canvas.height = originalHeight;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+    // 2) Off‐screen 캔버스 생성
+    const canvas = document.createElement('canvas');
+    canvas.width = originalWidth;
+    canvas.height = originalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  // 3) 프레임 이미지 로드 & 그리기
-  await new Promise<void>((res) => {
-    const img = new window.Image();
-    img.src = frameImg.src;
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
-      res();
-    };
-  });
-
-  // 4) 배치된 아이템들 그리기
-  for (const item of placedItems) {
+    // 3) 프레임 이미지 로드 & 그리기
     await new Promise<void>((res) => {
       const img = new window.Image();
-      img.src = item.url;
+      img.src = frame.src;
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const dx = item.xPct * originalWidth;
-        const dy = item.yPct * originalHeight;
-        const dW = item.wPct * originalWidth;
-        const dH = item.hPct * originalHeight;
-        ctx.drawImage(img, dx, dy, dW, dH);
+        ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
         res();
       };
     });
-  }
 
-  // 5) 파일로 저장
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'composed-frame.jpg';
-    link.click();
-  }, 'image/jpeg', 1.0);
-};
+    // 4) 배치된 아이템들 그리기
+    for (const item of placedItems) {
+      await new Promise<void>((res) => {
+        const img = new window.Image();
+        img.src = item.url;
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const dx = item.xPct * originalWidth;
+          const dy = item.yPct * originalHeight;
+          const dW = item.wPct * originalWidth;
+          const dH = item.hPct * originalHeight;
+          ctx.drawImage(img, dx, dy, dW, dH);
+          res();
+        };
+      });
+    }
+
+    // 5) 파일로 저장
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'composed-frame.jpg';
+      link.click();
+    }, 'image/jpeg', 1.0);
+  };
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -216,7 +235,7 @@ const handleSave = async () => {
             position: 'relative',
             width: '100%',
             aspectRatio: `${originalWidth} / ${originalHeight}`,
-            backgroundImage: `url(${frameUrl})`,
+            backgroundImage: `url(${frame.src})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             border: '1px solid #aaa',
@@ -264,5 +283,35 @@ const handleSave = async () => {
 }
 
 export default function Home() {
-  return <PhotoFrameEditor frameUrl={frameImg.src} />;
+  const [selectedFrameIdx, setSelectedFrameIdx] = useState(0);
+
+  return (
+    <div>
+      {/* Frame selection icons */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+        {frames.map((f, idx) => (
+          <img
+            key={idx}
+            src={f.frame.src}
+            alt={`Frame ${idx + 1}`}
+            width={50}
+            height={50}
+            onClick={() => setSelectedFrameIdx(idx)}
+            style={{
+              cursor: 'pointer',
+              border: selectedFrameIdx === idx ? '2px solid blue' : '1px solid gray',
+              borderRadius: 4,
+              margin: '0 8px',
+            }}
+          />
+        ))}
+      </div>
+      {/* Editor for selected frame */}
+      <PhotoFrameEditor
+        key={selectedFrameIdx}
+        frame={frames[selectedFrameIdx].frame}
+        frameInfo={frames[selectedFrameIdx].info}
+      />
+    </div>
+  );
 }
