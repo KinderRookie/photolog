@@ -101,6 +101,9 @@ function PhotoFrameEditor({
 
   // 썸네일 클릭 → 현재 coords 위치에 배치
   const handleThumbnailClick = (url: string) => {
+    if (selectedRegion === null) {
+      return;
+    }
     const regionOriginal = selectedRegion !== null ? frameInfo.coordinates[selectedRegion] : null;
     const defaultW = 100;
     const defaultH = 100;
