@@ -10,20 +10,17 @@ const directoryProps: DirectoryProps = {
 import Image from "next/image";
 import React, { useState, useRef, useEffect } from 'react';
 
-import frame1Img from '../assets/frame1/frame.jpg';
+import frame1Img from '../assets/frame1/frame.png';
 import frame1Info from '../assets/frame1/info.json';
-import frame2Img from '../assets/frame2/frame.jpg';
+import frame2Img from '../assets/frame2/frame.png';
 import frame2Info from '../assets/frame2/info.json';
-import frame3Img from '../assets/frame3/frame.jpg';
+import frame3Img from '../assets/frame3/frame.png';
 import frame3Info from '../assets/frame3/info.json';
-import frame4Img from '../assets/frame4/frame.jpg';
-import frame4Info from '../assets/frame4/info.json';
 
 const frames = [
   { frame: frame1Img, info: frame1Info },
   { frame: frame2Img, info: frame2Info },
   { frame: frame3Img, info: frame3Info },
-  { frame: frame4Img, info: frame4Info },
 ] as const;
 
 function PhotoFrameEditor({
@@ -37,12 +34,12 @@ function PhotoFrameEditor({
   const originalWidth = frame.width;
   const originalHeight = frame.height;
   // 1) 전체 이미지 목록
-  const [images, setImages] = useState<{ file: File; url: string }[]>([]);
+  const [images, setImages] = useState<{ file: File; url: string; rotation: number }[]>([]);
   // 2) 사용자가 입력한 좌표
   const [coords, _] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  // 3) 배치된 아이템들: {url, xPct, yPct, wPct, hPct} 리스트
+  // 3) 배치된 아이템들: {url, rotation, xPct, yPct, wPct, hPct} 리스트
   const [placedItems, setPlacedItems] = useState<
-    Array<{ url: string; xPct: number; yPct: number; wPct: number; hPct: number }>
+    Array<{ url: string; rotation: number; xPct: number; yPct: number; wPct: number; hPct: number }>
   >([]);
   // region selection state
   const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
@@ -95,12 +92,13 @@ function PhotoFrameEditor({
     if (!e.target.files) return;
     const imgs = Array.from(e.target.files)
       .filter((f) => f.type.startsWith('image/'))
-      .map((f) => ({ file: f, url: URL.createObjectURL(f) }));
+      .map((f) => ({ file: f, url: URL.createObjectURL(f), rotation: 0 }));
     setImages(imgs);
   };
 
   // 썸네일 클릭 → 현재 coords 위치에 배치
-  const handleThumbnailClick = (url: string) => {
+  const handleThumbnailClick = (idx: number) => {
+    const { url, rotation } = images[idx];
     if (selectedRegion === null) {
       return;
     }
@@ -111,12 +109,21 @@ function PhotoFrameEditor({
       ...prev,
       {
         url,
+        rotation,
         xPct: regionOriginal ? regionOriginal.x / originalWidth : coords.x / originalWidth,
         yPct: regionOriginal ? regionOriginal.y / originalHeight : coords.y / originalHeight,
         wPct: regionOriginal ? regionOriginal.width / originalWidth : defaultW / originalWidth,
         hPct: regionOriginal ? regionOriginal.height / originalHeight : defaultH / originalHeight,
       },
     ]);
+  };
+
+  const handleRotate = (idx: number) => {
+    setImages((prev) =>
+      prev.map((img, i) =>
+        i === idx ? { ...img, rotation: (img.rotation + 90) % 360 } : img
+      )
+    );
   };
 
   // 미리보기 캡처 & 저장
@@ -154,26 +161,45 @@ function PhotoFrameEditor({
         const dW = item.wPct * originalWidth;
         const dH = item.hPct * originalHeight;
 
-        // Calculate cropping dimensions for center-crop fill (cover) behavior
-        const frameRatio = dW / dH;
-        const imgRatio = img.width / img.height;
-        let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
-
-        if (imgRatio > frameRatio) {
-          // Image is wider than frame: crop horizontally
-          sWidth = img.height * frameRatio;
-          sx = (img.width - sWidth) / 2;
+        // 1) Draw the image rotated into an offscreen canvas
+        const offCanvas = document.createElement('canvas');
+        // Swap dimensions for 90/270° rotation
+        if (item.rotation % 180 === 90) {
+          offCanvas.width = img.height;
+          offCanvas.height = img.width;
         } else {
-          // Image is taller than frame: crop vertically
-          sHeight = img.width / frameRatio;
-          sy = (img.height - sHeight) / 2;
+          offCanvas.width = img.width;
+          offCanvas.height = img.height;
+        }
+        const offCtx = offCanvas.getContext('2d');
+        if (offCtx) {
+          offCtx.translate(offCanvas.width / 2, offCanvas.height / 2);
+          offCtx.rotate((item.rotation * Math.PI) / 180);
+          offCtx.drawImage(img, -img.width / 2, -img.height / 2);
         }
 
-        // Draw cropped image
-        ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dW, dH);
+        // 2) Crop the rotated image to fill the frame area (center-crop)
+        const rotW = offCanvas.width;
+        const rotH = offCanvas.height;
+        const frameRatio = dW / dH;
+        const imgRatio = rotW / rotH;
+        let sx = 0, sy = 0, sWidth = rotW, sHeight = rotH;
+
+        if (imgRatio > frameRatio) {
+          // Wider than frame: crop horizontally
+          sWidth = rotH * frameRatio;
+          sx = (rotW - sWidth) / 2;
+        } else {
+          // Taller than frame: crop vertically
+          sHeight = rotW / frameRatio;
+          sy = (rotH - sHeight) / 2;
+        }
+
+        // 3) Draw cropped, rotated image into main canvas
+        ctx.drawImage(offCanvas, sx, sy, sWidth, sHeight, dx, dy, dW, dH);
         res();
-        };
-      });
+      };
+    });
     }
 
     // 5) 파일로 저장
@@ -217,19 +243,31 @@ function PhotoFrameEditor({
           {images.map((img, idx) => (
             <div
               key={idx}
-              onClick={() => handleThumbnailClick(img.url)}
+              onClick={() => handleThumbnailClick(idx)}
               style={{
                 border: '1px solid #ddd',
                 borderRadius: 4,
                 overflow: 'hidden',
                 cursor: 'pointer',
+                position: 'relative',
               }}
             >
               <img
                 src={img.url}
                 alt=""
-                style={{ width: '100%', height: 'auto', display: 'block' }}
-              />
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  transform: `rotate(${img.rotation}deg)`,
+                  transformOrigin: 'center center',
+                }}              />
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRotate(idx); }}
+                style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+              >
+                🔄
+              </button>
             </div>
           ))}
         </div>
@@ -274,6 +312,8 @@ function PhotoFrameEditor({
                 width: `${item.wPct * 100}%`,
                 height: `${item.hPct * 100}%`,
                 objectFit: 'cover',
+                transform: `rotate(${item.rotation}deg)`,
+                transformOrigin: 'center center',
               }}
             />
           ))}

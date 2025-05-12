@@ -1,10 +1,11 @@
 {
-    "name": "basic-two-row",
-    "row": 3,
-    "column": 1,
+    "name": "basic-two-two",
+    "row": 2,
+    "column": 2,
     "coordinates": [
-    {"x": 70, "y":60, "width":474, "height": 474},
-    {"x": 70, "y":576, "width":474, "height": 474},
-    {"x": 70, "y":1090, "width":474, "height": 474}
+    {"x": 212, "y":196, "width":1963, "height": 1206},
+    {"x": 2314, "y":196, "width":1963, "height": 1206},
+    {"x": 212, "y":1684, "width":1963, "height": 1206},
+    {"x": 2314, "y":1684, "width":1963, "height": 1206}
     ]
 }
