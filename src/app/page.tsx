@@ -142,19 +142,36 @@ function PhotoFrameEditor({
       };
     });
 
-    // 4) 배치된 아이템들 그리기
+    // 4) 배치된 아이템들 그리기 (with cropping)
     for (const item of placedItems) {
-      await new Promise<void>((res) => {
-        const img = new window.Image();
-        img.src = item.url;
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const dx = item.xPct * originalWidth;
-          const dy = item.yPct * originalHeight;
-          const dW = item.wPct * originalWidth;
-          const dH = item.hPct * originalHeight;
-          ctx.drawImage(img, dx, dy, dW, dH);
-          res();
+    await new Promise<void>((res) => {
+      const img = new window.Image();
+      img.src = item.url;
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const dx = item.xPct * originalWidth;
+        const dy = item.yPct * originalHeight;
+        const dW = item.wPct * originalWidth;
+        const dH = item.hPct * originalHeight;
+
+        // Calculate cropping dimensions for center-crop fill (cover) behavior
+        const frameRatio = dW / dH;
+        const imgRatio = img.width / img.height;
+        let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+
+        if (imgRatio > frameRatio) {
+          // Image is wider than frame: crop horizontally
+          sWidth = img.height * frameRatio;
+          sx = (img.width - sWidth) / 2;
+        } else {
+          // Image is taller than frame: crop vertically
+          sHeight = img.width / frameRatio;
+          sy = (img.height - sHeight) / 2;
+        }
+
+        // Draw cropped image
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dW, dH);
+        res();
         };
       });
     }
